@@ -1,0 +1,194 @@
+/* ============================================================
+   FlashTransfer — Global Design System
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── CSS Custom Properties ── */
+:root {
+  /* Matte Black / Jet Black Palette (Dark Mode Default) */
+  --bg-base:       #000000;
+  --bg-panel:      #0a0a0a;
+  --bg-surface:    #121212;
+  --bg-hover:      #1c1c1c;
+  --bg-glass:      rgba(18, 18, 18, 0.7);
+
+  --accent:        #00c6ff;
+  --accent-dim:    rgba(0, 198, 255, 0.12);
+  --accent-border: rgba(0, 198, 255, 0.35);
+  --accent-glow:   0 0 20px rgba(0, 198, 255, 0.25);
+
+  --success:       #22d3a5;
+  --success-dim:   rgba(34, 211, 165, 0.12);
+  --warning:       #f59e0b;
+  --error:         #f87171;
+  --error-dim:     rgba(248, 113, 113, 0.12);
+
+  --text-primary:  #ffffff;
+  --text-secondary:#a1a1aa;
+  --text-muted:    #52525b;
+
+  --border:        rgba(255, 255, 255, 0.1);
+  --border-accent: rgba(0, 198, 255, 0.25);
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.6);
+  --shadow-panel: 0 0 0 1px var(--border), 0 4px 24px rgba(0,0,0,0.4);
+  /* Typography */
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Transitions */
+  --t-fast: 120ms ease;
+  --t-base: 200ms ease;
+  --t-slow: 350ms ease;
+}
+
+[data-theme='light'] {
+  --bg-base:       #ffffff;
+  --bg-panel:      #f4f4f5; /* Zinc 100 - Good contrast for DropZone */
+  --bg-surface:    #ffffff;
+  --bg-hover:      #e4e4e7; /* Zinc 200 */
+  --bg-glass:      rgba(255, 255, 255, 0.85);
+
+  --accent:        #2563eb; /* Blue 600 - sharper contrast */
+  --accent-dim:    rgba(37, 99, 235, 0.12);
+  --accent-border: rgba(37, 99, 235, 0.3);
+  --accent-glow:   0 0 15px rgba(37, 99, 235, 0.15);
+
+  --success:       #059669; /* Emerald 600 */
+  --success-dim:   rgba(5, 150, 105, 0.12);
+  --warning:       #d97706; /* Amber 600 */
+  --error:         #dc2626; /* Red 600 */
+  --error-dim:     rgba(220, 38, 38, 0.12);
+
+  /* Typography */
+  --text-primary:  #18181b; /* Zinc 900 - rich black */
+  --text-secondary:#3f3f46; /* Zinc 700 - dark gray */
+  --text-muted:    #71717a; /* Zinc 500 - readable gray */
+
+  --border:        rgba(24, 24, 27, 0.12);
+  --border-accent: rgba(37, 99, 235, 0.3);
+
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md:  0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-panel: 0 0 0 1px var(--border), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── App Layout ── */
+#root {
+  display: grid;
+  grid-template-rows: 52px 1fr 32px;
+  grid-template-columns: 240px 1fr;
+  grid-template-areas:
+    "header header"
+    "sidebar main"
+    "statusbar statusbar";
+}
+
+/* ── Glassmorphism panel mixin ── */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* ── Utility ── */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Animations ── */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); opacity: 0.6; }
+  50%  { transform: scale(1.05); opacity: 1;   }
+  100% { transform: scale(0.95); opacity: 0.6; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes dash-flow {
+  to { stroke-dashoffset: -20; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(400%); opacity: 0; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "flash-transfer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fast, secure local network file transfer",
+  "scripts": {
+    "dev": "frontend\\node_modules\\.bin\\tauri dev",
+    "build": "frontend\\node_modules\\.bin\\tauri build",
+    "lint": "npm run lint --prefix frontend",
+    "format": "npm run format --prefix frontend"
+  }
+}

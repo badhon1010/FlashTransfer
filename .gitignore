@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+
+# Executables
+*.exe
+rustup-init.exe
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Rust
+/target/
+**/*.rs.bk
+
+# OS generated files
+Thumbs.db
+
+# Documentation
+docs/
