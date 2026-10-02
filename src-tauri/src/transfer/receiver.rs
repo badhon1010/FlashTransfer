@@ -36,6 +36,43 @@ fn emit_receiver_progress(
     }
 }
 
+fn resolve_conflict_file(path: &std::path::Path) -> std::path::PathBuf {
+    if !path.exists() {
+        return path.to_path_buf();
+    }
+    let dir = path.parent().unwrap_or_else(|| std::path::Path::new("")).to_path_buf();
+    let stem = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+    let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+
+    let mut counter = 1;
+    loop {
+        let new_name = format!("{} ({}){}", stem, counter, ext);
+        let new_path = dir.join(new_name);
+        if !new_path.exists() {
+            return new_path;
+        }
+        counter += 1;
+    }
+}
+
+fn resolve_conflict_dir(path: &std::path::Path) -> std::path::PathBuf {
+    if !path.exists() {
+        return path.to_path_buf();
+    }
+    let dir = path.parent().unwrap_or_else(|| std::path::Path::new("")).to_path_buf();
+    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+    let mut counter = 1;
+    loop {
+        let new_name = format!("{} ({})", name, counter);
+        let new_path = dir.join(new_name);
+        if !new_path.exists() {
+            return new_path;
+        }
+        counter += 1;
+    }
+}
+
 pub async fn start_receiver(app: AppHandle) -> Result<u16, String> {
     let listener = TcpListener::bind("0.0.0.0:0").await.map_err(|e| format!("bind: {e}"))?;
     let port = listener.local_addr().unwrap().port();
@@ -167,16 +204,31 @@ async fn handle_connection_inner(
                     let _ = tx_accept.send((header.transfer_id.clone(), accepted));
                     
                     if accepted {
-                        if header.file_count > 1 {
-                            download_dir = download_dir.join(&header.batch_name);
-                            tokio::fs::create_dir_all(&download_dir).await.map_err(|e| format!("create dir: {e}"))?;
-                        }
+                        let mut local_path_str = String::new();
                         
-                        let local_path = if header.file_count == 1 {
-                            download_dir.join(&header.manifest[0].path).to_string_lossy().to_string()
-                        } else {
-                            download_dir.to_string_lossy().to_string()
-                        };
+                        if header.file_count > 1 {
+                            let batch_dir = download_dir.join(&header.batch_name);
+                            download_dir = resolve_conflict_dir(&batch_dir);
+                            tokio::fs::create_dir_all(&download_dir).await.map_err(|e| format!("create dir: {e}"))?;
+                            local_path_str = download_dir.to_string_lossy().to_string();
+                            
+                            for entry in &header.manifest {
+                                let path = download_dir.join(&entry.path);
+                                if let Some(parent) = path.parent() {
+                                    tokio::fs::create_dir_all(parent).await.unwrap_or_default();
+                                }
+                                let _ = std::fs::File::create(&path);
+                            }
+                        } else if header.file_count == 1 {
+                            let file_path = download_dir.join(&header.manifest[0].path);
+                            let resolved_path = resolve_conflict_file(&file_path);
+                            local_path_str = resolved_path.to_string_lossy().to_string();
+                            
+                            if let Some(parent) = resolved_path.parent() {
+                                tokio::fs::create_dir_all(parent).await.unwrap_or_default();
+                            }
+                            let _ = std::fs::File::create(&resolved_path);
+                        }
 
                         let record = TransferRecord {
                             id: header.transfer_id.clone(),
@@ -187,20 +239,11 @@ async fn handle_connection_inner(
                             status: "transferring".to_string(),
                             direction: "receive".to_string(),
                             device_name: "Unknown".to_string(),
-                            local_path,
+                            local_path: local_path_str,
                             created_at: None,
                             updated_at: None,
                         };
                         db.insert_transfer(&record).await.map_err(|e| format!("db insert: {e}"))?;
-                        
-                        // Create files upfront so other streams can open them
-                        for entry in &header.manifest {
-                            let path = download_dir.join(&entry.path);
-                            if let Some(parent) = path.parent() {
-                                tokio::fs::create_dir_all(parent).await.unwrap_or_default();
-                            }
-                            let _ = std::fs::File::create(&path);
-                        }
                     }
                 }
                 Err(_) => {
@@ -216,18 +259,6 @@ async fn handle_connection_inner(
                     Ok(Ok((tid, accepted))) => {
                         if tid == header.transfer_id {
                             is_accepted = accepted;
-                            
-                            // find download_dir from DB
-                            if accepted {
-                                if let Some(record) = db.get_transfer(&header.transfer_id).await.unwrap_or(None) {
-                                    let path = std::path::PathBuf::from(&record.local_path);
-                                    if header.file_count > 1 {
-                                        download_dir = path;
-                                    } else {
-                                        download_dir = path.parent().unwrap_or_else(|| std::path::Path::new(".")).to_path_buf();
-                                    }
-                                }
-                            }
                             break;
                         }
                     }
@@ -235,6 +266,22 @@ async fn handle_connection_inner(
                     Err(_) => { break; } // timeout
                 }
             }
+        }
+    }
+    
+    // Now that acceptance is determined (either stream_id=0 or others waited for it),
+    // retrieve the final download_dir (if folder) or exact local_path (if file) from DB.
+    let mut exact_file_path = None;
+    if is_accepted {
+        if let Some(record) = db.get_transfer(&header.transfer_id).await.unwrap_or(None) {
+            let path = std::path::PathBuf::from(&record.local_path);
+            if header.file_count > 1 {
+                download_dir = path;
+            } else {
+                exact_file_path = Some(path);
+            }
+        } else {
+            return Err("Accepted but transfer not found in db".to_string());
         }
     }
 
@@ -269,7 +316,11 @@ async fn handle_connection_inner(
         let write_end = std::cmp::min(file_global_end, end_global_offset);
 
         if write_start < write_end {
-            let file_path = download_dir.join(&entry.path);
+            let file_path = if header.file_count == 1 {
+                exact_file_path.clone().unwrap()
+            } else {
+                download_dir.join(&entry.path)
+            };
             
             // Open for read/write without truncating, creating if needed
             let mut file = tokio::fs::OpenOptions::new()
