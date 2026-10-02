@@ -31,6 +31,11 @@ dirs = "6"
 walkdir = "2.5.0"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "macros", "chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+chacha20poly1305 = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+hex = "0.4"
 
 [lints.rust]
 unsafe_code = "forbid"

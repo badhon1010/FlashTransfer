@@ -57,14 +57,13 @@ fn str_to_kind(s: &str) -> DeviceKind {
 ///
 /// The `mdns` daemon must live as long as discovery is needed — pass the one
 /// stored in `AppState` so it isn't dropped.
-pub fn start_discovery(app: AppHandle, mdns: ServiceDaemon, port: u16) {
+pub fn start_discovery(app: AppHandle, mdns: ServiceDaemon, port: u16, hostname: String) {
     std::thread::spawn(move || {
-        run_discovery(app, mdns, port);
+        run_discovery(app, mdns, port, hostname);
     });
 }
 
-fn run_discovery(app: AppHandle, mdns: ServiceDaemon, port: u16) {
-    let hostname = get_hostname();
+fn run_discovery(app: AppHandle, mdns: ServiceDaemon, port: u16, hostname: String) {
     // mDNS instance names must not contain spaces; replace with hyphens.
     let instance = hostname.replace(' ', "-");
 

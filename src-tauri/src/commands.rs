@@ -20,11 +20,24 @@ type CommandResult<T> = Result<T, String>;
 #[tauri::command]
 pub async fn get_local_info(state: State<'_, AppState>) -> CommandResult<LocalInfo> {
     let port = *state.local_port.lock().map_err(|e| e.to_string())?;
+    
+    // Check if user set a custom name
+    let name = match state.db.get_setting("device_name").await {
+        Some(custom) if !custom.trim().is_empty() => custom,
+        _ => get_hostname(),
+    };
+
     Ok(LocalInfo {
-        name: get_hostname(),
+        name,
         ip:   get_local_ip().unwrap_or_else(|| "127.0.0.1".to_string()),
         port,
     })
+}
+
+#[tauri::command]
+pub async fn set_device_name(name: String, state: State<'_, AppState>) -> CommandResult<()> {
+    state.db.set_setting("device_name", &name).await?;
+    Ok(())
 }
 
 pub fn build_batch_manifest(file_paths: &[String]) -> Result<(String, u64, Vec<FileEntry>), String> {
@@ -134,6 +147,7 @@ pub async fn start_transfer(
             paused,
             cancelled,
             false,
+            false,
             file_paths_json,
         )
         .await;
@@ -171,7 +185,7 @@ pub async fn resume_transfer(
 ) -> CommandResult<()> {
     // 1. Try a hot resume (transfer task is currently suspended in memory)
     {
-        let mut mgr = state.transfer_manager.lock().map_err(|e| e.to_string())?;
+        let mgr = state.transfer_manager.lock().map_err(|e| e.to_string())?;
         if mgr.handles.contains_key(&id) {
             mgr.resume(&id);
             return Ok(());
@@ -239,6 +253,7 @@ pub async fn resume_transfer(
             paused,
             cancelled,
             true, // is_resume
+            false, // is_benchmark
             file_paths_json,
         )
         .await;
@@ -258,6 +273,34 @@ pub async fn resume_transfer(
 #[tauri::command]
 pub async fn get_transfer_history(state: State<'_, AppState>) -> CommandResult<Vec<crate::storage::db::TransferRecord>> {
     state.db.get_all_transfers().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_transfer(
+    state: State<'_, AppState>,
+    id: String,
+) -> CommandResult<()> {
+    state.db.delete_transfer(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn clear_transfer_history(state: State<'_, AppState>) -> CommandResult<()> {
+    state.db.clear_transfer_history().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_device_history(
+    state: State<'_, AppState>,
+) -> CommandResult<Vec<crate::storage::db::DeviceHistoryRecord>> {
+    state.db.get_device_history().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn forget_device(
+    state: State<'_, AppState>,
+    id: String,
+) -> CommandResult<()> {
+    state.db.forget_device(&id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

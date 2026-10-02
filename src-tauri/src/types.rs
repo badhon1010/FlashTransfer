@@ -65,6 +65,13 @@ pub struct TransferProgress {
     pub device_name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileManifestEntry {
+    pub path: String,
+    pub size: u64,
+}
+
 /// Length-prefixed JSON header sent before file bytes over TCP.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +81,10 @@ pub struct TransferHeader {
     pub total_size: u64,
     pub file_count: u32,
     pub is_resume: bool,
+    pub is_benchmark: bool,
+    pub manifest: Vec<FileManifestEntry>,
+    pub stream_id: u32,
+    pub total_streams: u32,
 }
 
 /// Acknowledgment sent from receiver to sender.
