@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 
 import Header from './components/Header'
 import DeviceList from './components/DeviceList'
@@ -121,6 +122,14 @@ function App() {
       }
 
       // 1.5 Load transfer history from DB
+      let permissionGranted = false
+      try {
+        permissionGranted = await isPermissionGranted()
+        if (!permissionGranted) {
+          const permission = await requestPermission()
+          permissionGranted = permission === 'granted'
+        }
+      } catch (e) { console.error('Notification permission failed', e) }
       const loadHistory = async () => {
         try {
           const raw = await invoke<any[]>('get_transfer_history')
@@ -220,6 +229,18 @@ function App() {
           }
           return [updatedRecord, ...prev]
         })
+
+        if (payload.status === 'done' || payload.status === 'error') {
+          try {
+            if (permissionGranted) {
+              const title = payload.status === 'done' ? 'Transfer Complete' : 'Transfer Failed'
+              const body = payload.status === 'done' 
+                ? `Successfully ${payload.direction === 'send' ? 'sent' : 'received'} ${payload.batchName}.`
+                : `Failed to transfer ${payload.batchName}.`
+              sendNotification({ title, body })
+            }
+          } catch (e) { console.error(e) }
+        }
       })
       cleanups.push(unlistenProgress)
 
@@ -227,6 +248,11 @@ function App() {
       const unlistenRequest = await listen<TransferRequest>('transfer-request', ({ payload }) => {
         setIncomingRequests((prev) => {
           if (prev.some((r) => r.id === payload.id)) return prev
+          try {
+            if (permissionGranted) {
+              sendNotification({ title: 'Incoming Transfer', body: `${payload.senderName} wants to send you ${payload.batchName}.` })
+            }
+          } catch (e) { console.error(e) }
           return [...prev, payload]
         })
       })
@@ -409,8 +435,9 @@ function App() {
                 Active Transfers
               </div>
               {transfers.filter(t => t.status === 'transferring' || t.status === 'paused' || t.status === 'error').length === 0 && (
-                <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>
-                  No active transfers.
+                <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '40px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '32px' }}>🍃</span>
+                  No active transfers at the moment.
                 </div>
               )}
               {transfers
@@ -453,7 +480,10 @@ function App() {
               {historySubTab === 'Transfers' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {historyRecords.filter(r => r.status !== 'transferring' && r.status !== 'paused' && r.status !== 'error').length === 0 && (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>No transfer history.</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '40px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '32px' }}>🕰️</span>
+                      Your transfer history is empty.
+                    </div>
                   )}
                   {historyRecords
                     .filter(r => r.status !== 'transferring' && r.status !== 'paused' && r.status !== 'error')
@@ -490,7 +520,10 @@ function App() {
               {historySubTab === 'Devices' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {deviceHistory.length === 0 && (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>No device history.</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '40px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '32px' }}>👻</span>
+                      No connected devices yet.
+                    </div>
                   )}
                   {deviceHistory.map(d => (
                     <div key={d.id} style={{

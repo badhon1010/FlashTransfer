@@ -27,7 +27,11 @@ fn native_device_kind() -> DeviceKind { DeviceKind::Laptop }
 fn native_device_kind() -> DeviceKind { DeviceKind::Desktop }
 #[cfg(target_os = "linux")]
 fn native_device_kind() -> DeviceKind { DeviceKind::Desktop }
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+#[cfg(target_os = "android")]
+fn native_device_kind() -> DeviceKind { DeviceKind::Phone }
+#[cfg(target_os = "ios")]
+fn native_device_kind() -> DeviceKind { DeviceKind::Phone }
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux", target_os = "android", target_os = "ios")))]
 fn native_device_kind() -> DeviceKind { DeviceKind::Unknown }
 
 fn kind_to_str(kind: &DeviceKind) -> &'static str {

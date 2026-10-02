@@ -28,6 +28,7 @@ pub fn run() {
     tauri::Builder::default()
         // ── Plugins ──────────────────────────────────────────────────────────
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)

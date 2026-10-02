@@ -143,7 +143,7 @@ async fn handle_connection_inner(
     peer_ip: &str,
     tx_accept: broadcast::Sender<(String, bool)>
 ) -> Result<(), String> {
-    let mut download_dir = dirs::download_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    let mut download_dir = app.path().download_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let mut is_accepted = false;
 
     if header.is_benchmark {
