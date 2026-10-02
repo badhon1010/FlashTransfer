@@ -28,25 +28,15 @@ const Header: FC<HeaderProps> = ({ hasDevices, deviceCount, theme, toggleTheme }
           style={{
             width: 32,
             height: 32,
-            borderRadius: 'var(--r-md)',
-            background: 'linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: 'var(--accent-glow)',
             flexShrink: 0,
+            borderRadius: 'var(--r-md)',
+            overflow: 'hidden',
           }}
         >
-          {/* Lightning bolt SVG */}
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M13 2L4.5 13.5H11L10 22L20 10H13.5L13 2Z"
-              fill="white"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <img src="/logo.png" alt="FlashTransfer Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
 
         <div>
