@@ -8,7 +8,33 @@ use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use std::time::Duration;
 
-
+#[allow(clippy::too_many_arguments)]
+fn emit_receiver_progress(
+    app: &AppHandle,
+    id: &str,
+    batch_name: &str,
+    total_size: u64,
+    transferred: u64,
+    speed: u64,
+    status: TransferStatus,
+    device_name: &str,
+) {
+    if let Err(e) = app.emit(
+        "transfer-progress",
+        &crate::types::TransferProgress {
+            id: id.to_string(),
+            batch_name: batch_name.to_string(),
+            total_size,
+            transferred,
+            speed,
+            status,
+            direction: crate::types::TransferDirection::Receive,
+            device_name: device_name.to_string(),
+        },
+    ) {
+        error!("receiver: emit transfer-progress failed: {e}");
+    }
+}
 
 pub async fn start_receiver(app: AppHandle) -> Result<u16, String> {
     let listener = TcpListener::bind("0.0.0.0:0").await.map_err(|e| format!("bind: {e}"))?;
@@ -60,6 +86,26 @@ async fn handle_connection(
 
     info!("receiver: '{}' stream {}/{} (resume: {}) from {}", header.batch_name, header.stream_id, header.total_streams, header.is_resume, peer_ip);
 
+    match handle_connection_inner(&app, db, &mut stream, &header, &peer_ip, tx_accept).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if header.stream_id == 0 {
+                let _ = db.update_transfer_progress(&header.transfer_id, 0, TransferStatus::Error).await;
+                emit_receiver_progress(&app, &header.transfer_id, &header.batch_name, header.total_size, 0, 0, TransferStatus::Error, &peer_ip);
+            }
+            Err(e)
+        }
+    }
+}
+
+async fn handle_connection_inner(
+    app: &AppHandle,
+    db: &crate::storage::db::Database,
+    stream: &mut EncryptedStream<tokio::net::TcpStream>,
+    header: &TransferHeader,
+    peer_ip: &str,
+    tx_accept: broadcast::Sender<(String, bool)>
+) -> Result<(), String> {
     let mut download_dir = dirs::download_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let mut is_accepted = false;
 
@@ -100,12 +146,13 @@ async fn handle_connection(
                 batch_name: header.batch_name.clone(),
                 total_size: header.total_size,
                 file_count: header.file_count,
-                sender_ip: peer_ip.clone(),
+                sender_ip: peer_ip.to_string(),
                 sender_name: "Unknown".to_string(), // In full implementation, pass sender_name in header
             };
 
             let (tx, rx) = tokio::sync::oneshot::channel();
             {
+                let state = app.state::<crate::AppState>();
                 let mut pending = state.pending_requests.lock().map_err(|e| e.to_string())?;
                 pending.insert(header.transfer_id.clone(), tx);
             }
@@ -268,7 +315,7 @@ async fn handle_connection(
     // but for now we assume they all finish around the same time.
     if header.stream_id == 0 {
         let _ = db.update_transfer_progress(&header.transfer_id, header.total_size, TransferStatus::Done).await;
-        // emit done
+        emit_receiver_progress(app, &header.transfer_id, &header.batch_name, header.total_size, header.total_size, 0, TransferStatus::Done, peer_ip);
     }
 
     Ok(())

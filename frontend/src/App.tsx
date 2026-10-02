@@ -199,6 +199,27 @@ function App() {
           }
           return [updated, ...prev]
         })
+        setHistoryRecords((prev) => {
+          const idx = prev.findIndex((r) => r.id === payload.id)
+          const updatedRecord: TransferRecord = {
+            id: payload.id,
+            batchName: payload.batchName,
+            totalSize: payload.totalSize,
+            transferred: payload.transferred,
+            status: payload.status,
+            direction: payload.direction,
+            deviceName: payload.deviceName,
+            localPath: '', // we don't have this in progress payload, but it's okay for display
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+          if (idx >= 0) {
+            const copy = [...prev]
+            copy[idx] = { ...copy[idx], ...updatedRecord, localPath: copy[idx].localPath, createdAt: copy[idx].createdAt }
+            return copy
+          }
+          return [updatedRecord, ...prev]
+        })
       })
       cleanups.push(unlistenProgress)
 
@@ -314,7 +335,7 @@ function App() {
           {(['Send Files', 'Active Transfers', 'History', 'Settings'] as const).map((tab) => {
             const isActive = currentTab === tab
             const activeCount = transfers.filter(
-              (t) => t.status === 'transferring' || t.status === 'paused',
+              (t) => t.status === 'transferring' || t.status === 'paused' || t.status === 'error',
             ).length
             return (
               <button
@@ -387,13 +408,13 @@ function App() {
               }}>
                 Active Transfers
               </div>
-              {transfers.filter(t => t.status === 'transferring' || t.status === 'paused').length === 0 && (
+              {transfers.filter(t => t.status === 'transferring' || t.status === 'paused' || t.status === 'error').length === 0 && (
                 <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>
                   No active transfers.
                 </div>
               )}
               {transfers
-                .filter(t => t.status === 'transferring' || t.status === 'paused')
+                .filter(t => t.status === 'transferring' || t.status === 'paused' || t.status === 'error')
                 .map((t) => (
                   <TransferCard
                     key={t.id}
@@ -431,11 +452,11 @@ function App() {
 
               {historySubTab === 'Transfers' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {historyRecords.filter(r => r.status !== 'transferring' && r.status !== 'paused').length === 0 && (
+                  {historyRecords.filter(r => r.status !== 'transferring' && r.status !== 'paused' && r.status !== 'error').length === 0 && (
                     <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>No transfer history.</div>
                   )}
                   {historyRecords
-                    .filter(r => r.status !== 'transferring' && r.status !== 'paused')
+                    .filter(r => r.status !== 'transferring' && r.status !== 'paused' && r.status !== 'error')
                     .map(r => (
                       <div key={r.id} style={{
                         background: 'var(--surface)', borderRadius: 'var(--r-md)',

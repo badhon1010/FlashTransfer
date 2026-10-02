@@ -103,16 +103,19 @@ pub async fn send_batch(
     }
     
     let mut success = true;
+    let mut error_msg = String::new();
     for res in results {
         match res {
             Ok(Ok(_)) => {},
             Ok(Err(e)) => {
                 error!("sender: stream failed: {e}");
                 success = false;
+                error_msg = e;
             },
             Err(e) => {
                 error!("sender: stream panicked: {e}");
                 success = false;
+                error_msg = "Stream panicked".to_string();
             }
         }
     }
@@ -124,7 +127,13 @@ pub async fn send_batch(
         info!("sender: '{}' sent successfully with {} streams", batch_name, total_streams);
         Ok(())
     } else {
-        Err("One or more streams failed".to_string())
+        let total_transferred = {
+            let st = shared_transferred.lock().await;
+            st.iter().sum::<u64>()
+        };
+        let _ = state.db.update_transfer_progress(&transfer_id, total_transferred, TransferStatus::Error).await;
+        emit_progress(&app, &transfer_id, &batch_name, total_size, total_transferred, 0, TransferStatus::Error, &device_name);
+        Err(error_msg)
     }
 }
 
